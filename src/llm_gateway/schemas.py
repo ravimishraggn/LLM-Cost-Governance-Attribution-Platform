@@ -59,9 +59,14 @@ class CompletionResponse(BaseModel):
 
     id: int | None = None
     provider: Provider
-    model: str
+    model: str  # the model that actually served the call (post-routing)
     content: str
     usage: Usage
     cost_usd: float
     latency_ms: float
     metadata: CallMetadata
+
+    # Routing outcome (Phase 4)
+    requested_model: str
+    routed: bool = False
+    estimated_savings_usd: float = 0.0

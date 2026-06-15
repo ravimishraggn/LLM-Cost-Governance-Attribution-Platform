@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # Model router (Phase 4) — rule-based routing (see ADR-005)
+    router_enabled: bool = True
+    routing_config_path: str = "config/routing.yaml"
+
     # Provider credentials (only required when mock mode is off)
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

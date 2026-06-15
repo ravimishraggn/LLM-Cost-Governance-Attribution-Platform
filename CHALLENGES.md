@@ -90,3 +90,33 @@ in the naive integration:
 This mirrors the platform's broader **fail-open** stance (see the gateway-down
 discussion): cost accuracy lives in the database (the ledger), while Langfuse is
 the *debugging lens* — a Langfuse problem degrades visibility, never correctness.
+
+---
+
+## Phase 4 — How do you measure savings you didn't spend?
+
+**Challenge.** The router's whole pitch is "we saved you money by using a cheaper
+model." But savings are a **counterfactual** — to know the true saving you'd have
+to run *both* the expensive and the cheap model on the same request and compare,
+which would double the cost and defeat the purpose. You only ever actually run
+one model. So what number do you put in the `estimated_savings_usd` column, and
+how do you avoid it being marketing fiction?
+
+A subtler trap: the expensive model wouldn't have produced the *same* number of
+output tokens as the cheap one, so even a "what would it have cost" estimate is
+not exact.
+
+**Resolution.** Two decisions, both about being honest rather than impressive:
+1. **Compute the counterfactual against the served call's actual token usage** —
+   take the input/output tokens the cheap model really used and price them at the
+   *requested* (expensive) model's rate. `savings = expensive_rate_cost −
+   actual_cost`. It's a defensible apples-ish-to-apples proxy that never requires
+   a second API call.
+2. **Name it `estimated_savings` everywhere** — column, response field, ADR, and
+   dashboard — and document in ADR-005 that it's a counterfactual, not a measured
+   A/B. Overclaiming here would poison finance's trust in every other number the
+   platform produces.
+
+This also pays a dividend: every routed call now logs (request features →
+decision → outcome → estimated saving), which is exactly the labeled dataset a
+future ML-based router (the road not taken in ADR-005) would need to train on.

@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Model routing rules (Phase 4, see ADR-005).
+#
+# The router classifies each request as "simple" or "complex" using the cheap
+# heuristics below, and — if simple — swaps an expensive model for a configured
+# cheaper sibling. Like pricing, these rules are external and hot-reloadable
+# (POST /admin/reload-routing): tune routing without a code deploy.
+# ---------------------------------------------------------------------------
+
+complexity:
+  # A prompt longer than this many characters is treated as complex.
+  max_simple_chars: 2000
+  # Asking for a large completion implies a non-trivial task.
+  max_simple_output_tokens: 1024
+  # If any of these appear in the prompt or use_case, treat the task as complex.
+  complex_keywords:
+    - analyze
+    - analysis
+    - reasoning
+    - reason through
+    - step by step
+    - prove
+    - explain why
+    - design
+    - architect
+    - evaluate
+    - compare
+    - strategy
+    - debug
+    - root cause
+
+# Per-provider "expensive -> cheaper" swaps applied only to SIMPLE tasks.
+# If a requested model isn't listed, it is never downgraded.
+downgrades:
+  openai:
+    gpt-4o: gpt-4o-mini
+    gpt-4: gpt-4o-mini
+  anthropic:
+    claude-opus-4-8: claude-haiku-4-5
+    claude-sonnet-4-6: claude-haiku-4-5
+  bedrock:
+    "anthropic.claude-sonnet-4-6-v1:0": "anthropic.claude-haiku-4-5-v1:0"

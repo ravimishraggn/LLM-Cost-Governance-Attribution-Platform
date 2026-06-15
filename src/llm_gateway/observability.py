@@ -41,6 +41,9 @@ class Tracer(Protocol):
         cost_usd: float,
         latency_ms: float,
         call_id: int | None,
+        requested_model: str | None = None,
+        routed: bool = False,
+        estimated_savings_usd: float = 0.0,
     ) -> None: ...
 
     def flush(self) -> None: ...
@@ -91,6 +94,9 @@ class LangfuseTracer:
         cost_usd: float,
         latency_ms: float,
         call_id: int | None,
+        requested_model: str | None = None,
+        routed: bool = False,
+        estimated_savings_usd: float = 0.0,
     ) -> None:
         m = request.metadata
         try:
@@ -123,6 +129,9 @@ class LangfuseTracer:
                     "provider": request.provider.value,
                     "cost_usd": cost_usd,
                     "latency_ms": latency_ms,
+                    "requested_model": requested_model or request.model,
+                    "routed": routed,
+                    "estimated_savings_usd": estimated_savings_usd,
                 },
             )
         except Exception:  # never let tracing break a real call
