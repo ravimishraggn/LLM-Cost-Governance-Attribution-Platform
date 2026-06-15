@@ -1,7 +1,8 @@
 # What we've built so far — a plain-English walkthrough
 
 *Covers Phase 1 (the gateway), Phase 2 (the cost engine), Phase 3
-(observability), and Phase 4 (the model router). No code knowledge needed.*
+(observability), Phase 4 (the model router), and Phase 5 (the dashboard). No code
+knowledge needed.*
 
 ---
 
@@ -116,6 +117,36 @@ Two deliberate choices worth knowing:
 - **It only ever makes things cheaper or leaves them alone** — it never blocks a
   call or upgrades you into a more expensive model by surprise.
 
+## Phase 5 — the dashboard (finally, a face on the data)
+
+Everything so far filled up one big table. Phase 5 turns that table into a
+**dashboard** a non-engineer can actually read — think of it as the monthly
+statement for your AI spend. On one screen:
+
+- **Spend by team over time** — a stacked chart; spot the team whose line is
+  climbing.
+- **Cost by model** — where the money actually goes (often a few expensive calls).
+- **Top 10 use cases** — the priciest *things you're doing*, not just models.
+- **Routing savings** — how much the switchboard (Phase 4) saved, per team.
+- **Budget vs. actual** — each team's spend against a budget set in a simple
+  config file, colour-coded: green (OK), amber (getting close), red (over). Teams
+  in the red trigger an alert banner.
+
+Two practical notes:
+- **Budgets are just a config file** ([`config/budgets.yaml`](../config/budgets.yaml)) —
+  Finance can set "research gets $600/month, alert at 90%" without anyone touching
+  code.
+- **The number-crunching is separate from the pretty screen.** All the math lives
+  in tested code; the dashboard is only the display. So if we later want a fancier
+  web app, we rebuild the *look*, not the logic.
+
+You can fill it with a realistic month of demo data and open it locally:
+
+```bash
+python scripts/seed_data.py --reset    # ~30 days of sample calls across teams
+streamlit run dashboard/app.py
+```
+
 ---
 
 ## Let's simulate a real day
@@ -175,10 +206,9 @@ the **meaning** on top of the raw spend.
 
 ## Where this is going
 
-- **Phase 5 — Dashboard:** a screen for finance and team leads — spend by team
-  over time, top use cases, and the routing savings achieved.
-- **Phase 6 — Governance:** budgets, alerts when a team overspends, and an audit
-  export for compliance.
+- **Phase 6 — Governance:** turn the dashboard's budget *alerts* into recorded
+  policy-violation *events* when a team overspends, plus a one-click audit export
+  (CSV) of every call for compliance review.
 
 ---
 

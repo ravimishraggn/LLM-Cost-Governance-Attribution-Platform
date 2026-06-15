@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# Per-team budgets (Phase 5 display; Phase 6 enforcement, see ADR-007).
+#
+# Policy-as-config: budgets and alert thresholds live here, not in code, so
+# Finance can adjust them without a deploy. The dashboard reads these to show
+# budget-vs-actual; Phase 6 will log a policy-violation event when actual
+# crosses the threshold.
+# ---------------------------------------------------------------------------
+
+currency: USD
+period: monthly
+
+# alert_threshold_pct: warn once actual spend reaches this % of the budget.
+default:
+  monthly_budget_usd: 100
+  alert_threshold_pct: 80
+
+teams:
+  recruiting:
+    monthly_budget_usd: 50
+    alert_threshold_pct: 80
+  support:
+    monthly_budget_usd: 150
+    alert_threshold_pct: 80
+  research:
+    monthly_budget_usd: 600
+    alert_threshold_pct: 90
+  marketing:
+    monthly_budget_usd: 40
+    alert_threshold_pct: 75
+  analytics:
+    monthly_budget_usd: 80
+    alert_threshold_pct: 80

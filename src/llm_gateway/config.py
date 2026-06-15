@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     router_enabled: bool = True
     routing_config_path: str = "config/routing.yaml"
 
+    # Budgets (Phase 5 display / Phase 6 enforcement, see ADR-007)
+    budgets_config_path: str = "config/budgets.yaml"
+
     # Provider credentials (only required when mock mode is off)
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

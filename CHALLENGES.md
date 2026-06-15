@@ -120,3 +120,36 @@ not exact.
 This also pays a dividend: every routed call now logs (request features →
 decision → outcome → estimated saving), which is exactly the labeled dataset a
 future ML-based router (the road not taken in ADR-005) would need to train on.
+
+---
+
+## Phase 5 — Dashboard logic that survives the database (and the UI)
+
+**Challenge.** Two coupling traps appear when you build a dashboard against a
+live DB:
+1. **SQL dialect lock-in.** The natural way to chart "cost per team per day" is a
+   `GROUP BY date_trunc('day', created_at)` — but `date_trunc` is Postgres;
+   SQLite uses `strftime`. Writing the aggregation in SQL would bind the dashboard
+   to one database and silently break when we move from the SQLite MVP to Postgres
+   in production.
+2. **Logic trapped in the UI.** Aggregation written inline in Streamlit callbacks
+   can't be unit-tested without spinning up a browser, and can't be reused by a
+   future React app or a scheduled CSV export.
+
+**Resolution.** Split the dashboard into two layers:
+- A **pure-pandas reporting layer** (`reporting.py`): `load_calls()` pulls the raw
+  rows once, and every metric (`cost_by_model`, `top_use_cases`,
+  `budget_vs_actual`, ...) is a plain function `DataFrame -> DataFrame`. Grouping
+  happens in pandas, so the logic is byte-for-byte identical on SQLite and
+  Postgres. These functions are unit-tested with hand-built frames — no DB, no UI.
+- A **thin Streamlit view** (`dashboard/app.py`) that only loads, filters, and
+  draws. It holds no business logic.
+
+Two subtler details fell out of this: `budget_vs_actual` must include teams that
+have a budget but *zero* spend (union the configured teams with the spending
+teams) and must count only the **current month** (a period mask), or the alerts
+lie. And because Streamlit re-runs the whole script on every interaction,
+`load_calls()` is wrapped in `@st.cache_data` so filtering doesn't hammer the DB.
+
+The payoff is the ADR-006 thesis made real: when we outgrow Streamlit, we rebuild
+the *view*, not the analytics.

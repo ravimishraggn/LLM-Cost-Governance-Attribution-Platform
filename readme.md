@@ -51,7 +51,7 @@ flowchart LR
 
     DB[("Call log DB\nSQLite / Postgres")]
     LF["Langfuse tracing\n(fail-safe, opt-in)"]
-    DASH["Streamlit dashboard\n(Phase 5)"]
+    DASH["Streamlit dashboard\n(chargeback + budgets)"]
 
     Apps -->|POST /v1/completions| GW
     AD --> Providers
@@ -68,7 +68,7 @@ flowchart LR
 | 2     | Config-driven cost calculation engine   | ✅ Done        |
 | 3     | Langfuse observability integration      | ✅ Done        |
 | 4     | Rule-based model router + savings       | ✅ Done        |
-| 5     | Streamlit chargeback dashboard          | ⬜ Planned     |
+| 5     | Streamlit chargeback dashboard          | ✅ Done        |
 | 6     | Budgets, policy violations, audit export| ⬜ Planned     |
 
 ---
@@ -147,11 +147,15 @@ src/llm_gateway/
   cost.py            # cost hook — calls the pricing engine per call
   observability.py   # Langfuse tracing (fail-safe, off by default)
   router.py          # rule-based complexity router + savings estimate
+  budgets.py         # per-team budgets loaded from config
+  reporting.py       # pure-pandas aggregations for the dashboard
   gateway.py         # the one choke point every call flows through
   main.py            # FastAPI app
   providers/         # adapter layer normalizing OpenAI/Anthropic/Bedrock
+dashboard/app.py     # Streamlit chargeback dashboard (ADR-006)
 config/pricing.yaml  # external, updatable rate card (ADR-003)
 config/routing.yaml  # model routing rules (ADR-005)
+config/budgets.yaml  # per-team budgets + alert thresholds (ADR-007)
 docs/adr/            # architecture decision records
 scripts/             # demo / seed scripts
 tests/               # pytest suite
@@ -166,6 +170,7 @@ tests/               # pytest suite
 - [ADR-003](docs/adr/003-external-pricing-config.md) — External, updatable pricing config vs. hardcoded prices
 - [ADR-004](docs/adr/004-langfuse-over-custom-tracing.md) — Langfuse for tracing vs. building custom observability
 - [ADR-005](docs/adr/005-rule-based-routing-first.md) — Rule-based routing first vs. ML-based routing
+- [ADR-006](docs/adr/006-streamlit-mvp-dashboard.md) — Streamlit for the MVP dashboard vs. a full React app
 
 ### Pricing (Phase 2)
 
@@ -213,3 +218,19 @@ curl -X POST http://localhost:8000/admin/reload-routing
 
 The response from `/v1/completions` includes `requested_model`, `model` (what
 actually served the call), `routed`, and `estimated_savings_usd`.
+
+### Dashboard (Phase 5)
+
+A Streamlit chargeback dashboard ([dashboard/app.py](dashboard/app.py)) reads the
+call-log DB and shows cost by team over time, cost by model, top use cases,
+routing savings, and budget-vs-actual with alert thresholds (see
+[ADR-006](docs/adr/006-streamlit-mvp-dashboard.md)). Budgets are config-driven in
+[`config/budgets.yaml`](config/budgets.yaml).
+
+```bash
+python scripts/seed_data.py --reset    # generate ~30 days of sample data
+streamlit run dashboard/app.py         # open the dashboard
+```
+
+Aggregation logic lives in [reporting.py](src/llm_gateway/reporting.py) (pure,
+unit-tested pandas) — the Streamlit file is just the view.
