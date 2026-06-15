@@ -79,7 +79,7 @@ def main() -> None:
     if not ts.empty:
         fig = px.area(ts, x="date", y="cost_usd", color="team", labels={"cost_usd": "Cost (USD)"})
         fig.update_layout(margin=dict(t=10, b=10), legend_title_text="Team")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     left, right = st.columns(2)
 
@@ -89,7 +89,7 @@ def main() -> None:
         bm = reporting.cost_by_model(fdf)
         fig = px.bar(bm, x="cost_usd", y="model", orientation="h", labels={"cost_usd": "Cost (USD)", "model": ""})
         fig.update_layout(margin=dict(t=10, b=10), yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # ---- Top use cases ----
     with right:
@@ -97,7 +97,7 @@ def main() -> None:
         tu = reporting.top_use_cases(fdf, n=10)
         fig = px.bar(tu, x="cost_usd", y="use_case", orientation="h", labels={"cost_usd": "Cost (USD)", "use_case": ""})
         fig.update_layout(margin=dict(t=10, b=10), yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.divider()
 
@@ -109,7 +109,7 @@ def main() -> None:
     else:
         fig = px.bar(sav_team, x="team", y="estimated_savings_usd", labels={"estimated_savings_usd": "Est. savings (USD)", "team": ""})
         fig.update_layout(margin=dict(t=10, b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         st.caption("Estimated savings are a counterfactual: the requested model's rate applied to actual tokens, minus what we paid (ADR-005).")
 
     st.divider()
@@ -132,14 +132,14 @@ def main() -> None:
         # overlay budget as markers
         fig.add_scatter(x=bva["team"], y=bva["budget_usd"], mode="markers", name="Budget", marker=dict(symbol="line-ew-open", size=28, line=dict(width=3, color="#5F5E5A")))
         fig.update_layout(margin=dict(t=10, b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         styled = bva.style.format(
             {"actual_usd": "${:,.2f}", "budget_usd": "${:,.2f}", "pct_used": "{:.1f}%", "threshold_pct": "{:.0f}%"}
         ).apply(
             lambda row: [f"background-color: {STATUS_COLORS.get(row['status'], '')}22"] * len(row), axis=1
         )
-        st.dataframe(styled, use_container_width=True, hide_index=True)
+        st.dataframe(styled, width="stretch", hide_index=True)
 
         over = bva[bva["status"] == "OVER"]["team"].tolist()
         warn = bva[bva["status"] == "WARN"]["team"].tolist()
