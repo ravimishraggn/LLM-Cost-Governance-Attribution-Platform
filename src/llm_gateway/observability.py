@@ -100,40 +100,39 @@ class LangfuseTracer:
     ) -> None:
         m = request.metadata
         try:
-            trace = self._client.trace(
+            # Langfuse v3+ is OpenTelemetry-based: create a generation observation
+            # via start_observation(as_type="generation"). Attribution tags and
+            # routing/cost details are carried in metadata so they reconcile with
+            # the cost database. (Validate the exact attribute mapping against a
+            # live Langfuse instance before relying on it for dashboards.)
+            gen = self._client.start_observation(
+                as_type="generation",
                 name=f"{request.provider.value}:{request.model}",
-                user_id=m.team,
-                tags=_tags(request),
+                model=request.model,
+                input=[msg.model_dump(mode="json") for msg in request.messages],
+                output=content,
+                usage_details={
+                    "input": prompt_tokens,
+                    "output": completion_tokens,
+                    "total": total_tokens,
+                },
+                # Surface our own cost calc into Langfuse so the two agree.
+                cost_details={"total": cost_usd},
                 metadata={
+                    "tags": _tags(request),
                     "team": m.team,
                     "project": m.project,
                     "agent_name": m.agent_name,
                     "use_case": m.use_case,
                     "call_log_id": call_id,
-                },
-            )
-            trace.generation(
-                name="completion",
-                model=request.model,
-                input=[msg.model_dump(mode="json") for msg in request.messages],
-                output=content,
-                usage={
-                    "input": prompt_tokens,
-                    "output": completion_tokens,
-                    "total": total_tokens,
-                    "unit": "TOKENS",
-                    # Surface our own cost calc into Langfuse so the two agree.
-                    "totalCost": cost_usd,
-                },
-                metadata={
                     "provider": request.provider.value,
-                    "cost_usd": cost_usd,
                     "latency_ms": latency_ms,
                     "requested_model": requested_model or request.model,
                     "routed": routed,
                     "estimated_savings_usd": estimated_savings_usd,
                 },
             )
+            gen.end()
         except Exception:  # never let tracing break a real call
             logger.warning("Langfuse trace failed; continuing without it", exc_info=True)
 

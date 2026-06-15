@@ -22,6 +22,10 @@ import streamlit as st  # noqa: E402
 
 from llm_gateway import reporting  # noqa: E402
 from llm_gateway.budgets import get_budget_book, reload_budget_book  # noqa: E402
+from llm_gateway.db import init_db, session_scope  # noqa: E402
+from llm_gateway.governance import evaluate_all_teams  # noqa: E402
+
+init_db()  # ensure tables exist (idempotent) so a fresh DB never 500s the view
 
 st.set_page_config(page_title="LLM Cost Governance", page_icon="💸", layout="wide")
 
@@ -147,6 +151,41 @@ def main() -> None:
             st.error(f"Over budget: {', '.join(over)}")
         if warn:
             st.warning(f"Approaching budget (>= threshold): {', '.join(warn)}")
+
+    st.divider()
+
+    # ---- Governance: policy violations + audit export ----
+    st.subheader("Governance")
+    gcol1, gcol2 = st.columns([3, 1])
+    with gcol2:
+        if st.button("Evaluate budgets now"):
+            with session_scope() as session:
+                new = evaluate_all_teams(session)
+                n = len(new)
+            st.success(f"Recorded {n} new violation(s).")
+        st.download_button(
+            "Download audit CSV (calls)",
+            data=reporting.to_csv(df),
+            file_name="audit_calls.csv",
+            mime="text/csv",
+        )
+
+    with gcol1:
+        viol = reporting.load_violations()
+        if viol.empty:
+            st.info("No policy violations recorded. Use 'Evaluate budgets now' to run a check.")
+        else:
+            st.dataframe(
+                viol.sort_values("created_at", ascending=False),
+                width="stretch",
+                hide_index=True,
+            )
+            st.download_button(
+                "Download audit CSV (violations)",
+                data=reporting.to_csv(viol),
+                file_name="audit_violations.csv",
+                mime="text/csv",
+            )
 
 
 if __name__ == "__main__":

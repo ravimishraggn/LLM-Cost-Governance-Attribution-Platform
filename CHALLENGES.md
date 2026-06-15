@@ -153,3 +153,33 @@ lie. And because Streamlit re-runs the whole script on every interaction,
 
 The payoff is the ADR-006 thesis made real: when we outgrow Streamlit, we rebuild
 the *view*, not the analytics.
+
+---
+
+## Phase 6 — Alerting that informs without spamming
+
+**Challenge.** Governance evaluates budgets on *every call* (so a breach is caught
+in real time, in the same transaction as the call that caused it). But a team
+that's over budget is over budget on its next call too, and the one after that —
+naively recording a violation each time would write thousands of duplicate
+"research is over budget" rows in an afternoon, burying the one event that
+mattered and making the audit export useless.
+
+A second subtlety: "month-to-date spend" must mean *this calendar month*, and the
+query has to give the same answer on SQLite (MVP) and Postgres (prod) — but the
+two disagree on date functions (`strftime` vs `date_trunc`).
+
+**Resolution.**
+1. **De-duplicate on `(team, period, severity)`.** A `PolicyViolation` is recorded
+   only if one of that severity doesn't already exist for that team in that
+   `YYYY-MM` period. So a sustained overspend produces exactly one WARN event and
+   one OVER event per month — a clean, auditable timeline, not noise.
+2. **Compute the period with explicit datetime bounds**, not DB date functions:
+   `created_at >= first-of-month AND < first-of-next-month`. Identical results on
+   SQLite and Postgres, same lesson as the Phase 5 reporting layer.
+
+A design decision fell out of this too (documented in ADR-007): we **observe and
+record** rather than hard-block calls over budget. Blocking production LLM calls
+on a cost threshold could take down a feature over money; the fail-open stance is
+to record the violation, surface it, and let humans decide — blocking can become
+an opt-in *config* flag later, never a hardcoded rule.
