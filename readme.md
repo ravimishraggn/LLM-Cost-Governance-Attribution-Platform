@@ -66,7 +66,7 @@ flowchart LR
 |-------|-----------------------------------------|----------------|
 | 1     | Foundation, unified gateway, DB logging | ✅ Done        |
 | 2     | Config-driven cost calculation engine   | ✅ Done        |
-| 3     | Langfuse observability integration      | ⬜ Planned     |
+| 3     | Langfuse observability integration      | ✅ Done        |
 | 4     | Rule-based model router + savings       | ⬜ Planned     |
 | 5     | Streamlit chargeback dashboard          | ⬜ Planned     |
 | 6     | Budgets, policy violations, audit export| ⬜ Planned     |
@@ -145,6 +145,7 @@ src/llm_gateway/
   db.py              # engine/session (SQLite or Postgres via DATABASE_URL)
   pricing.py         # config-driven pricing book + model-name resolution
   cost.py            # cost hook — calls the pricing engine per call
+  observability.py   # Langfuse tracing (fail-safe, off by default)
   gateway.py         # the one choke point every call flows through
   main.py            # FastAPI app
   providers/         # adapter layer normalizing OpenAI/Anthropic/Bedrock
@@ -161,6 +162,7 @@ tests/               # pytest suite
 - [ADR-001](docs/adr/001-fastapi-gateway-pattern.md) — FastAPI + proxy/gateway pattern over SDK wrappers
 - [ADR-002](docs/adr/002-gateway-level-logging.md) — Gateway-level logging vs. per-application instrumentation
 - [ADR-003](docs/adr/003-external-pricing-config.md) — External, updatable pricing config vs. hardcoded prices
+- [ADR-004](docs/adr/004-langfuse-over-custom-tracing.md) — Langfuse for tracing vs. building custom observability
 
 ### Pricing (Phase 2)
 
@@ -175,3 +177,20 @@ curl http://localhost:8000/pricing     # inspect current rates
 
 > The numbers in the file are **illustrative examples** — verify against the
 > providers' official pricing pages before using for real chargeback.
+
+### Observability (Phase 3)
+
+Every gateway call can mirror itself into [Langfuse](https://langfuse.com) as a
+trace, tagged with the same `team/project/agent/use_case` metadata as the cost
+record (see [ADR-004](docs/adr/004-langfuse-over-custom-tracing.md)). Tracing is
+**off by default** and fail-safe — it never adds latency to or breaks a call.
+
+```bash
+# in .env
+LANGFUSE_ENABLED=true
+LANGFUSE_PUBLIC_KEY=pk-...
+LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_HOST=https://cloud.langfuse.com   # or your self-hosted instance
+```
+
+`GET /health` reports whether tracing is active.

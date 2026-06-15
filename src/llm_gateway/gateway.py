@@ -9,11 +9,13 @@ and logging happen here exactly once, no matter the provider.
 from __future__ import annotations
 
 import json
+import logging
 import time
 
 from .cost import calculate_cost
 from .db import session_scope
 from .models import CallLog
+from .observability import get_tracer
 from .providers import get_provider
 from .schemas import CompletionRequest, CompletionResponse, Usage
 
@@ -50,6 +52,23 @@ def complete(request: CompletionRequest) -> CompletionResponse:
         session.add(log)
         session.flush()  # populate autoincrement id before the session closes
         log_id = log.id
+
+    # Mirror the call into the tracing backend with the same attribution tags.
+    # No-op unless Langfuse is enabled. Guarded here as defense-in-depth so that
+    # even a misbehaving tracer can never break the primary path (ADR-004).
+    try:
+        get_tracer().trace_call(
+            request=request,
+            content=result.content,
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
+            total_tokens=result.total_tokens,
+            cost_usd=cost_usd,
+            latency_ms=latency_ms,
+            call_id=log_id,
+        )
+    except Exception:  # pragma: no cover - belt-and-suspenders
+        logging.getLogger(__name__).warning("Tracing failed; call unaffected", exc_info=True)
 
     return CompletionResponse(
         id=log_id,

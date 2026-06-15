@@ -1,7 +1,7 @@
 # What we've built so far — a plain-English walkthrough
 
-*Covers Phase 1 (the gateway) and Phase 2 (the cost engine). No code knowledge
-needed.*
+*Covers Phase 1 (the gateway), Phase 2 (the cost engine), and Phase 3
+(observability). No code knowledge needed.*
 
 ---
 
@@ -65,6 +65,30 @@ dollars that is*.
 
 ---
 
+## Phase 3 — a flight recorder for every call
+
+The cost database answers *"what did it spend?"* Engineers also need *"what
+actually happened?"* — the exact prompt, the answer, how long it took, and how
+one user request quietly fanned out into a dozen model calls.
+
+So the booth now also files a **flight recording** of each call to **Langfuse**
+(an open-source tool built for exactly this). Same name tags as the cost row, so
+the money view and the debugging view line up. Now an engineer can click into a
+slow or weird call and see everything, while finance keeps using the cost table.
+
+Three promises we built in, because this recording happens on every single call:
+
+- **It never slows a call down** — recordings are batched in the background, not
+  sent one-by-one.
+- **It can never break a call** — if Langfuse hiccups, the AI request still
+  succeeds; we just lose that one recording.
+- **It's optional** — off by default; flip it on with a couple of settings.
+
+Think of it like a black box recorder on a plane: always running quietly, never
+interfering with the flight, invaluable when you need to investigate.
+
+---
+
 ## Let's simulate a real day
 
 Here are four calls flowing through the booth. (Token counts are realistic; the
@@ -117,8 +141,6 @@ the **meaning** on top of the raw spend.
 
 ## Where this is going
 
-- **Phase 3 — Observability:** send each call's trace to Langfuse so engineers
-  can debug *and* see cost in one place.
 - **Phase 4 — Model router:** automatically send simple tasks to cheaper models
   and record the savings (the $225 → $15 gap above).
 - **Phase 5 — Dashboard:** a screen for finance and team leads — spend by team

@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from . import __version__, gateway
 from .config import get_settings
 from .db import init_db
+from .observability import get_tracer
 from .pricing import get_pricing_book, reload_pricing_book
 from .schemas import CompletionRequest, CompletionResponse
 
@@ -21,6 +22,7 @@ from .schemas import CompletionRequest, CompletionResponse
 async def lifespan(app: FastAPI):
     init_db()  # create tables on startup
     yield
+    get_tracer().flush()  # drain any buffered traces on shutdown
 
 
 app = FastAPI(
@@ -33,7 +35,12 @@ app = FastAPI(
 
 @app.get("/health", tags=["ops"])
 def health() -> dict:
-    return {"status": "ok", "version": __version__, "mock_mode": get_settings().gateway_mock_mode}
+    return {
+        "status": "ok",
+        "version": __version__,
+        "mock_mode": get_settings().gateway_mock_mode,
+        "tracing_enabled": get_tracer().enabled,
+    }
 
 
 @app.post("/v1/completions", response_model=CompletionResponse, tags=["gateway"])

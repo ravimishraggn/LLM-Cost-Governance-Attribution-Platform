@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     # Pricing (Phase 2) — external, updatable rate card (see ADR-003)
     pricing_config_path: str = "config/pricing.yaml"
 
+    # Observability (Phase 3) — Langfuse tracing (see ADR-004). Off by default;
+    # a no-op tracer is used unless enabled AND both keys are present.
+    langfuse_enabled: bool = False
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str = "https://cloud.langfuse.com"
+
     # Provider credentials (only required when mock mode is off)
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

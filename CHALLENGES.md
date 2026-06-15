@@ -60,3 +60,33 @@ versus Bedrock, so a table keyed by model name alone can't represent both.
 This is also why the gateway prices on the **requested** model (what the caller
 asked for and what the rate card is written against) rather than the provider's
 returned snapshot id.
+
+---
+
+## Phase 3 — Tracing must never slow down or break a call
+
+**Challenge.** Adding Langfuse to the gateway introduced a tension: the tracing
+call sits on the critical path of every LLM request. Two failure modes appeared
+in the naive integration:
+1. **Latency.** Calling `langfuse.flush()` after each request makes a synchronous
+   network round-trip to Langfuse *per call* — adding tens to hundreds of
+   milliseconds to a path whose entire job is to be a thin, fast pass-through.
+2. **Blast radius.** If Langfuse is briefly unreachable (or the SDK raises on a
+   payload shape it doesn't like), an unguarded trace call would turn an
+   otherwise-successful LLM response into a `500`. Observability would be *causing*
+   outages — the opposite of its purpose.
+
+**Resolution.** Three guardrails, all in `observability.py` + the gateway:
+1. **Don't flush per call.** Rely on the SDK's background batching and flush once
+   at shutdown (FastAPI lifespan). Tracing comes off the latency hot path.
+2. **Wrap everything, twice.** Each tracer self-guards its Langfuse calls, *and*
+   the gateway wraps `trace_call()` in its own try/except as defense-in-depth — so
+   even a misbehaving tracer implementation can't break a request. A unit test
+   injects a deliberately-exploding tracer and asserts the call still succeeds.
+3. **Off by default, opt-in.** A `NoOpTracer` is used unless tracing is explicitly
+   enabled with credentials present, so tests, local dev, and mock runs carry zero
+   tracing overhead or config burden.
+
+This mirrors the platform's broader **fail-open** stance (see the gateway-down
+discussion): cost accuracy lives in the database (the ledger), while Langfuse is
+the *debugging lens* — a Langfuse problem degrades visibility, never correctness.
