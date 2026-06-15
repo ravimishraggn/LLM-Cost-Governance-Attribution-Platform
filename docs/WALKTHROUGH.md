@@ -1,8 +1,8 @@
 # What we've built so far — a plain-English walkthrough
 
-*Covers Phase 1 (the gateway), Phase 2 (the cost engine), Phase 3
-(observability), Phase 4 (the model router), and Phase 5 (the dashboard). No code
-knowledge needed.*
+*Covers all six phases: the gateway (1), the cost engine (2), observability (3),
+the model router (4), the dashboard (5), and governance (6). No code knowledge
+needed.*
 
 ---
 
@@ -147,6 +147,32 @@ python scripts/seed_data.py --reset    # ~30 days of sample calls across teams
 streamlit run dashboard/app.py
 ```
 
+## Phase 6 — the guardrails (budgets, alerts, audit trail)
+
+The dashboard *shows* spend. Phase 6 puts **guardrails** around it.
+
+- **Budgets per team** live in a simple config file — "research: $600/month, warn
+  at 90%." Finance owns that file; no code change needed to adjust a limit.
+- **Automatic violation alerts.** Every call quietly checks the team's
+  month-to-date spend against its budget. The moment a team crosses its warning
+  line (or goes over), the system records a **policy-violation event** — once, not
+  once per call (no alert spam). Think of it as the overdraft notice on a bank
+  account.
+- **Audit export.** One click (or one API call) exports every logged call — who,
+  what, when, which model, what cost — as a CSV for compliance review. This is the
+  same "complete, queryable record" that regulators (e.g. the EU AI Act) expect for
+  AI usage.
+
+One deliberate choice: the system **records and alerts** rather than *blocking* a
+call when a team goes over budget. Slamming the brakes on a live feature because of
+a cost threshold could cause an outage; instead we surface it loudly and let humans
+decide. (Hard-blocking can be switched on later — as a config setting, never a
+hidden rule.)
+
+This is also where the cost story meets the **compliance** story: a budget
+violation log and an AI-usage audit trail are the same shape of thing — a
+complete, trustworthy record plus the policy applied to it.
+
 ---
 
 ## Let's simulate a real day
@@ -196,7 +222,8 @@ for pennies.)
 | What did *this feature* cost? | Unanswerable | Filter the table by `use_case` |
 | Prices changed — now what? | Wait for a code release | Edit one file, reload |
 | Paying flagship rates for trivial tasks? | Nobody notices | Auto-routed to a cheaper model |
-| Show me everything for an audit | Scattered across 3 vendor dashboards | One queryable table |
+| A team blows its budget | Found out at invoice time | Alert the moment the threshold is crossed |
+| Show me everything for an audit | Scattered across 3 vendor dashboards | One queryable table + one-click CSV export |
 
 Cloud cost tools (like AWS Cost Explorer) can't do this — they see "money spent
 at OpenAI," not "tokens spent by the recruiting team's resume parser." We've added
@@ -204,11 +231,18 @@ the **meaning** on top of the raw spend.
 
 ---
 
-## Where this is going
+## All six phases are in place
 
-- **Phase 6 — Governance:** turn the dashboard's budget *alerts* into recorded
-  policy-violation *events* when a team overspends, plus a one-click audit export
-  (CSV) of every call for compliance review.
+The platform now does the full FinOps loop: **capture** every call with
+attribution (1), **cost** it from updatable pricing (2), **trace** it for
+debugging (3), **optimize** it by routing simple work to cheaper models (4),
+**report** it on a dashboard (5), and **govern** it with budgets, violation
+alerts, and an audit export (6).
+
+Natural next steps beyond this MVP (each maps to a future ADR): an async logging
+queue for 100× call volume, a self-service admin UI for budgets/pricing, an
+ML-based router trained on the routing decisions we've been logging, and
+fail-open behaviour if the gateway itself is unreachable.
 
 ---
 

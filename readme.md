@@ -40,7 +40,8 @@ flowchart LR
         AD["Provider Adapters\n(normalize tokens/format)"]
         C["Cost Engine\n(config-driven pricing)"]
         L["Logger -> CallLog"]
-        V --> R --> AD --> C --> L
+        G["Governance\n(budget check)"]
+        V --> R --> AD --> C --> L --> G
     end
 
     subgraph Providers["LLM Providers"]
@@ -52,12 +53,15 @@ flowchart LR
     DB[("Call log DB\nSQLite / Postgres")]
     LF["Langfuse tracing\n(fail-safe, opt-in)"]
     DASH["Streamlit dashboard\n(chargeback + budgets)"]
+    AUD["Audit CSV export\n(compliance)"]
 
     Apps -->|POST /v1/completions| GW
     AD --> Providers
     L --> DB
     L -.-> LF
+    G -->|policy violations| DB
     DB --> DASH
+    DB --> AUD
 ```
 
 ### Phase status
@@ -69,7 +73,7 @@ flowchart LR
 | 3     | Langfuse observability integration      | ✅ Done        |
 | 4     | Rule-based model router + savings       | ✅ Done        |
 | 5     | Streamlit chargeback dashboard          | ✅ Done        |
-| 6     | Budgets, policy violations, audit export| ⬜ Planned     |
+| 6     | Budgets, policy violations, audit export| ✅ Done        |
 
 ---
 
@@ -149,6 +153,7 @@ src/llm_gateway/
   router.py          # rule-based complexity router + savings estimate
   budgets.py         # per-team budgets loaded from config
   reporting.py       # pure-pandas aggregations for the dashboard
+  governance.py      # budget evaluation + policy-violation events
   gateway.py         # the one choke point every call flows through
   main.py            # FastAPI app
   providers/         # adapter layer normalizing OpenAI/Anthropic/Bedrock
@@ -171,6 +176,7 @@ tests/               # pytest suite
 - [ADR-004](docs/adr/004-langfuse-over-custom-tracing.md) — Langfuse for tracing vs. building custom observability
 - [ADR-005](docs/adr/005-rule-based-routing-first.md) — Rule-based routing first vs. ML-based routing
 - [ADR-006](docs/adr/006-streamlit-mvp-dashboard.md) — Streamlit for the MVP dashboard vs. a full React app
+- [ADR-007](docs/adr/007-policy-as-config.md) — Governance as policy-as-config vs. hardcoded rules
 
 ### Pricing (Phase 2)
 
@@ -234,3 +240,22 @@ streamlit run dashboard/app.py         # open the dashboard
 
 Aggregation logic lives in [reporting.py](src/llm_gateway/reporting.py) (pure,
 unit-tested pandas) — the Streamlit file is just the view.
+
+### Governance (Phase 6)
+
+Budgets are policy-as-config in [`config/budgets.yaml`](config/budgets.yaml) (see
+[ADR-007](docs/adr/007-policy-as-config.md)). On every call, the gateway checks the
+team's month-to-date spend against its budget and records a **de-duplicated**
+`PolicyViolation` event (one WARN + one OVER per team per month) when a threshold
+is crossed. The platform **observes and records** rather than hard-blocking calls.
+
+```bash
+curl http://localhost:8000/budgets
+curl -X POST http://localhost:8000/governance/evaluate     # sweep all teams now
+curl http://localhost:8000/governance/violations
+curl -OJ http://localhost:8000/audit/calls.csv             # compliance audit export
+curl -OJ http://localhost:8000/audit/violations.csv
+```
+
+The dashboard has a Governance section listing violations with the same CSV
+download.

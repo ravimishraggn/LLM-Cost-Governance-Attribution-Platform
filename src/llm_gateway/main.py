@@ -7,14 +7,18 @@ Docs: http://localhost:8000/docs
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 from . import __version__, gateway
+from .budgets import get_budget_book, reload_budget_book
 from .config import get_settings
-from .db import init_db
+from .db import init_db, session_scope
+from .governance import evaluate_all_teams
 from .observability import get_tracer
 from .pricing import get_pricing_book, reload_pricing_book
+from . import reporting
 from .router import get_router, reload_router
 from .schemas import CompletionRequest, CompletionResponse
 
@@ -77,3 +81,54 @@ def reload_routing() -> dict:
     """Reload routing rules from disk without restarting."""
     reload_router()
     return {"reloaded": True}
+
+
+@app.get("/budgets", tags=["governance"])
+def budgets() -> dict:
+    """Inspect the active per-team budgets (policy-as-config, ADR-007)."""
+    return get_budget_book().as_dict()
+
+
+@app.post("/admin/reload-budgets", tags=["governance"])
+def reload_budgets() -> dict:
+    book = reload_budget_book()
+    return {"reloaded": True, "teams": list(book.teams)}
+
+
+@app.get("/governance/violations", tags=["governance"])
+def violations() -> list[dict]:
+    """List recorded policy-violation events."""
+    df = reporting.load_violations()
+    return df.to_dict(orient="records")
+
+
+@app.post("/governance/evaluate", tags=["governance"])
+def evaluate() -> dict:
+    """Sweep every team now and record any newly-crossed budget thresholds."""
+    when = datetime.now(timezone.utc)
+    with session_scope() as session:
+        new = evaluate_all_teams(session, when)
+        recorded = [{"team": v.team, "severity": v.severity, "pct_used": v.pct_used} for v in new]
+    return {"new_violations": len(recorded), "details": recorded}
+
+
+@app.get("/audit/calls.csv", tags=["governance"])
+def audit_calls_csv() -> Response:
+    """Audit export: every logged call as CSV, for compliance review."""
+    csv = reporting.to_csv(reporting.load_calls())
+    return Response(
+        content=csv,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=audit_calls.csv"},
+    )
+
+
+@app.get("/audit/violations.csv", tags=["governance"])
+def audit_violations_csv() -> Response:
+    """Audit export: all policy-violation events as CSV."""
+    csv = reporting.to_csv(reporting.load_violations())
+    return Response(
+        content=csv,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=audit_violations.csv"},
+    )

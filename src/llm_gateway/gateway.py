@@ -15,6 +15,7 @@ import time
 
 from .cost import calculate_cost
 from .db import session_scope
+from .governance import record_violation_if_needed
 from .models import CallLog
 from .observability import get_tracer
 from .pricing import get_pricing_book
@@ -73,6 +74,9 @@ def complete(request: CompletionRequest) -> CompletionResponse:
         session.add(log)
         session.flush()  # populate autoincrement id before the session closes
         log_id = log.id
+        # Governance: in the same transaction, check whether this call pushed the
+        # team past its budget threshold and record a (de-duplicated) violation.
+        record_violation_if_needed(session, request.metadata.team)
 
     # 5. Mirror the call into the tracing backend with the same attribution tags.
     #    No-op unless Langfuse is enabled. Guarded here as defense-in-depth so

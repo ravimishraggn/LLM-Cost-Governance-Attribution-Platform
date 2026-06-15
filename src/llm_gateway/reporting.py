@@ -48,6 +48,25 @@ def load_calls(engine=None) -> pd.DataFrame:
     return df
 
 
+def load_violations(engine=None) -> pd.DataFrame:
+    """Load recorded policy-violation events (Phase 6)."""
+    engine = engine or db.engine
+    df = pd.read_sql(
+        "SELECT created_at, team, period, severity, budget_usd, actual_usd, "
+        "threshold_pct, pct_used, message FROM policy_violations",
+        engine,
+        parse_dates=["created_at"],
+    )
+    if not df.empty:
+        df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
+    return df
+
+
+def to_csv(df: pd.DataFrame) -> str:
+    """Serialize a frame to CSV text — used for the compliance audit export."""
+    return df.to_csv(index=False)
+
+
 def _empty(*columns: str) -> pd.DataFrame:
     return pd.DataFrame(columns=list(columns))
 
