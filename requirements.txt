@@ -5,6 +5,7 @@ pydantic>=2.7
 pydantic-settings>=2.3
 sqlalchemy>=2.0
 python-dotenv>=1.0
+pyyaml>=6.0          # pricing config (Phase 2)
 
 # --- Provider SDKs (lazy-imported; only needed for live calls) ---
 openai>=1.30

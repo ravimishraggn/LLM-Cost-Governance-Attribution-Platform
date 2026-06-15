@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from . import __version__, gateway
 from .config import get_settings
 from .db import init_db
+from .pricing import get_pricing_book, reload_pricing_book
 from .schemas import CompletionRequest, CompletionResponse
 
 
@@ -41,3 +42,17 @@ def create_completion(request: CompletionRequest) -> CompletionResponse:
     validated by Pydantic before we get here — unattributed calls are rejected
     with a 422, which is the whole point of the platform (ADR-002)."""
     return gateway.complete(request)
+
+
+@app.get("/pricing", tags=["cost"])
+def pricing() -> dict:
+    """Inspect the currently loaded pricing book (ADR-003)."""
+    return get_pricing_book().as_dict()
+
+
+@app.post("/admin/reload-pricing", tags=["cost"])
+def reload_pricing() -> dict:
+    """Reload the pricing YAML from disk without restarting — lets ops update
+    rates live when a provider changes prices."""
+    book = reload_pricing_book()
+    return {"reloaded": True, "version": book.version, "model_count": book.model_count}

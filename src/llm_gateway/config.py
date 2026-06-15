@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Storage
     database_url: str = "sqlite:///./llm_gov.db"
 
+    # Pricing (Phase 2) — external, updatable rate card (see ADR-003)
+    pricing_config_path: str = "config/pricing.yaml"
+
     # Provider credentials (only required when mock mode is off)
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

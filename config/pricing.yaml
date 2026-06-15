@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# LLM pricing book  —  the single, version-controlled source of truth for cost.
+#
+# This file is read at runtime and can be updated WITHOUT a code deploy
+# (see ADR-003). Edit a number, hit POST /admin/reload-pricing, done.
+#
+# Prices are USD per 1,000,000 tokens, split into input (prompt) and output
+# (completion) rates — the convention all three providers now publish in.
+#
+# NOTE: the figures below are ILLUSTRATIVE examples captured for this project.
+# Provider pricing changes often — verify against the official pricing pages
+# before using for real chargeback. The whole point of this file is that doing
+# so is a one-line edit, not a redeploy.
+# ---------------------------------------------------------------------------
+
+version: "2026-06-15"
+currency: USD
+unit: per_1m_tokens
+
+providers:
+  openai:
+    gpt-4o:
+      input: 2.50
+      output: 10.00
+    gpt-4o-mini:
+      input: 0.15
+      output: 0.60
+    gpt-4:
+      input: 30.00
+      output: 60.00
+
+  anthropic:
+    claude-opus-4-8:
+      input: 15.00
+      output: 75.00
+    claude-sonnet-4-6:
+      input: 3.00
+      output: 15.00
+    claude-haiku-4-5:
+      input: 1.00
+      output: 5.00
+
+  bedrock:
+    # Bedrock prices the same model families but on its own rate card — which is
+    # exactly why pricing is keyed by (provider, model), not by model alone.
+    "anthropic.claude-haiku-4-5-v1:0":
+      input: 1.00
+      output: 5.00
+    "anthropic.claude-sonnet-4-6-v1:0":
+      input: 3.00
+      output: 15.00

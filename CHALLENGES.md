@@ -33,3 +33,30 @@ A secondary benefit: because the adapter boundary is clean, a `MockProvider`
 slots in behind the same interface, letting the whole pipeline (tagging → cost →
 logging) run end-to-end with zero API keys and zero spend via
 `GATEWAY_MOCK_MODE`.
+
+---
+
+## Phase 2 — Model names don't match the pricing table
+
+**Challenge.** The cost engine looks up a price by model name, but the name a
+provider *reports* is often not the name you can price against. Ask OpenAI for
+`gpt-4o-mini` and the response's `model` field comes back as a dated snapshot
+like `gpt-4o-mini-2024-07-18`. A naive exact-match lookup against a pricing table
+keyed on `gpt-4o-mini` misses, silently producing `$0.00` — the worst kind of
+bug in a cost system, because the number still *looks* plausible.
+
+A second wrinkle: the same Claude model is priced differently on Anthropic direct
+versus Bedrock, so a table keyed by model name alone can't represent both.
+
+**Resolution.** Two decisions in `pricing.py`:
+1. **Key prices by `(provider, model)`**, never model alone — so Anthropic-direct
+   and Bedrock rates for the same family coexist.
+2. **Resolve names with an exact match first, then a longest-prefix fallback**, so
+   `gpt-4o-mini-2024-07-18` still resolves to the `gpt-4o-mini` entry while
+   `gpt-4` never accidentally swallows `gpt-4o`. When nothing matches at all, we
+   record `$0.00` *and log a warning* — an unpriced model becomes a visible gap,
+   not a silent zero.
+
+This is also why the gateway prices on the **requested** model (what the caller
+asked for and what the rate card is written against) rather than the provider's
+returned snapshot id.

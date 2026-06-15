@@ -65,7 +65,7 @@ flowchart LR
 | Phase | Scope                                   | Status         |
 |-------|-----------------------------------------|----------------|
 | 1     | Foundation, unified gateway, DB logging | ✅ Done        |
-| 2     | Config-driven cost calculation engine   | ⬜ Planned     |
+| 2     | Config-driven cost calculation engine   | ✅ Done        |
 | 3     | Langfuse observability integration      | ⬜ Planned     |
 | 4     | Rule-based model router + savings       | ⬜ Planned     |
 | 5     | Streamlit chargeback dashboard          | ⬜ Planned     |
@@ -143,10 +143,12 @@ src/llm_gateway/
   schemas.py         # Pydantic API contracts (incl. required CallMetadata)
   models.py          # SQLAlchemy CallLog — canonical record of every call
   db.py              # engine/session (SQLite or Postgres via DATABASE_URL)
-  cost.py            # cost hook (stub in Phase 1, engine in Phase 2)
+  pricing.py         # config-driven pricing book + model-name resolution
+  cost.py            # cost hook — calls the pricing engine per call
   gateway.py         # the one choke point every call flows through
   main.py            # FastAPI app
   providers/         # adapter layer normalizing OpenAI/Anthropic/Bedrock
+config/pricing.yaml  # external, updatable rate card (ADR-003)
 docs/adr/            # architecture decision records
 scripts/             # demo / seed scripts
 tests/               # pytest suite
@@ -158,3 +160,18 @@ tests/               # pytest suite
 
 - [ADR-001](docs/adr/001-fastapi-gateway-pattern.md) — FastAPI + proxy/gateway pattern over SDK wrappers
 - [ADR-002](docs/adr/002-gateway-level-logging.md) — Gateway-level logging vs. per-application instrumentation
+- [ADR-003](docs/adr/003-external-pricing-config.md) — External, updatable pricing config vs. hardcoded prices
+
+### Pricing (Phase 2)
+
+Per-model rates live in [`config/pricing.yaml`](config/pricing.yaml), keyed by
+`(provider, model)` with separate input/output rates per 1M tokens. Update a
+price and reload it live — no redeploy:
+
+```bash
+curl -X POST http://localhost:8000/admin/reload-pricing
+curl http://localhost:8000/pricing     # inspect current rates
+```
+
+> The numbers in the file are **illustrative examples** — verify against the
+> providers' official pricing pages before using for real chargeback.
